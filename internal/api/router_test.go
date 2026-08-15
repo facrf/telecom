@@ -119,3 +119,59 @@ func TestTechnicalVisitCRUDAPI(t *testing.T) {
 		t.Fatalf("visit details were not cascaded: count=%d err=%v", details, err)
 	}
 }
+
+func TestScanWithoutProjectAndAssign(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "telecom.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err = database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO clients(id,name) VALUES('c1','Cliente Teste'); INSERT INTO projects(id,client_id,name) VALUES('p1','c1','Projeto Teste')`); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(db, slog.Default(), 2, t.TempDir(), func() {})
+
+	// Inicia scan sem projeto
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/scans", bytes.NewBufferString(`{"network":"192.168.1.0/28"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected 201 Created, got %d: %s", res.Code, res.Body.String())
+	}
+	var created struct{ ID, ProjectID, Status string }
+	if err = json.Unmarshal(res.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.ProjectID != "" {
+		t.Fatalf("expected empty ProjectID, got %q", created.ProjectID)
+	}
+
+	// Lista scans gerais
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/scans", nil)
+	listRes := httptest.NewRecorder()
+	router.ServeHTTP(listRes, listReq)
+	if listRes.Code != http.StatusOK || !bytes.Contains(listRes.Body.Bytes(), []byte(created.ID)) {
+		t.Fatalf("list without project filter failed: %d %s", listRes.Code, listRes.Body.String())
+	}
+
+	// Atualiza e vincula ao projeto 'p1'
+	patchReq := httptest.NewRequest(http.MethodPatch, "/api/v1/scans/"+created.ID, bytes.NewBufferString(`{"projectId":"p1"}`))
+	patchReq.Header.Set("Content-Type", "application/json")
+	patchRes := httptest.NewRecorder()
+	router.ServeHTTP(patchRes, patchReq)
+	if patchRes.Code != http.StatusOK {
+		t.Fatalf("patch returned %d: %s", patchRes.Code, patchRes.Body.String())
+	}
+	var updated struct{ ID, ProjectID string }
+	if err = json.Unmarshal(patchRes.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.ProjectID != "p1" {
+		t.Fatalf("expected ProjectID 'p1', got %q", updated.ProjectID)
+	}
+}
+

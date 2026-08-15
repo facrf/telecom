@@ -125,6 +125,8 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 		r.Post("/", h.start)
 		r.Route("/{scanID}", func(r chi.Router) {
 			r.Get("/", h.get)
+			r.Patch("/", h.update)
+			r.Put("/", h.update)
 			r.Get("/hosts", h.hosts)
 			r.Get("/changes", h.changes)
 			r.Post("/cancel", h.cancel)
@@ -732,16 +734,39 @@ func (h scanHandlers) start(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &payload) {
 		return
 	}
-	if payload.ProjectID == "" || payload.Network == "" {
-		writeError(w, 422, "VALIDATION_ERROR", "Projeto e rede são obrigatórios")
+	if strings.TrimSpace(payload.Network) == "" {
+		writeError(w, 422, "VALIDATION_ERROR", "A rede para descoberta é obrigatória")
 		return
 	}
-	scan, e := h.manager.Start(r.Context(), newID(), payload.ProjectID, payload.Network)
+	scan, e := h.manager.Start(r.Context(), newID(), strings.TrimSpace(payload.ProjectID), strings.TrimSpace(payload.Network))
 	if e != nil {
 		writeError(w, 422, "INVALID_NETWORK", e.Error())
 		return
 	}
 	writeJSON(w, 201, scan)
+}
+
+func (h scanHandlers) update(w http.ResponseWriter, r *http.Request) {
+	var payload struct {
+		ProjectID string `json:"projectId"`
+	}
+	if !decodeJSON(w, r, &payload) {
+		return
+	}
+	if e := h.manager.UpdateProject(r.Context(), chi.URLParam(r, "scanID"), strings.TrimSpace(payload.ProjectID)); e != nil {
+		if errors.Is(e, sql.ErrNoRows) {
+			writeError(w, 404, "NOT_FOUND", "Scan não encontrado")
+			return
+		}
+		serverError(w, e)
+		return
+	}
+	scan, e := h.manager.Get(r.Context(), chi.URLParam(r, "scanID"))
+	if e != nil {
+		w.WriteHeader(204)
+		return
+	}
+	writeJSON(w, 200, scan)
 }
 func (h scanHandlers) get(w http.ResponseWriter, r *http.Request) {
 	scan, e := h.manager.Get(r.Context(), chi.URLParam(r, "scanID"))
@@ -779,8 +804,27 @@ func (h scanHandlers) cancel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(202)
 }
 func (h scanHandlers) events(w http.ResponseWriter, r *http.Request) {
-	events, unsubscribe, e := h.manager.Subscribe(chi.URLParam(r, "scanID"))
+	scanID := chi.URLParam(r, "scanID")
+	events, unsubscribe, e := h.manager.Subscribe(scanID)
 	if e != nil {
+		scan, getErr := h.manager.Get(r.Context(), scanID)
+		if getErr == nil && (scan.Status == "completed" || scan.Status == "cancelled") {
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+			if flusher, ok := w.(http.Flusher); ok {
+				encoded, _ := json.Marshal(scanner.Progress{
+					ScanID:       scan.ID,
+					Status:       scan.Status,
+					HostsScanned: scan.HostsScanned,
+					HostsFound:   scan.HostsFound,
+					Total:        scan.HostsScanned,
+				})
+				_, _ = fmt.Fprintf(w, "event: progress\ndata: %s\n\n", encoded)
+				flusher.Flush()
+			}
+			return
+		}
 		writeError(w, 404, "SCAN_NOT_RUNNING", e.Error())
 		return
 	}

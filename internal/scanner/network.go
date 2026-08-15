@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net/netip"
 	"strings"
@@ -38,7 +39,31 @@ func ParseTarget(value string, limit uint64, allowPublic bool) (TargetRange, err
 		if count > limit {
 			return TargetRange{}, fmt.Errorf("rede excede o limite de %d hosts", limit)
 		}
-		return TargetRange{Start: prefix.Addr(), End: prefix.Addr().Next().Prev(), Count: count}, nil
+		start := prefix.Addr()
+		var end netip.Addr
+		if start.Is4() {
+			b := start.As4()
+			ipVal := binary.BigEndian.Uint32(b[:]) + uint32(count-1)
+			var endBytes [4]byte
+			binary.BigEndian.PutUint32(endBytes[:], ipVal)
+			end = netip.AddrFrom4(endBytes)
+		} else {
+			end = start
+			for i := uint64(1); i < count; i++ {
+				end = end.Next()
+			}
+		}
+		return TargetRange{Start: start, End: end, Count: count}, nil
+	}
+	if !strings.Contains(value, "-") {
+		addr, err := netip.ParseAddr(value)
+		if err != nil {
+			return TargetRange{}, fmt.Errorf("endereço IP ou faixa inválida")
+		}
+		if !allowPublic && !addr.IsPrivate() {
+			return TargetRange{}, fmt.Errorf("somente redes privadas são permitidas")
+		}
+		return TargetRange{Start: addr, End: addr, Count: 1}, nil
 	}
 	parts := strings.Split(value, "-")
 	if len(parts) != 2 {

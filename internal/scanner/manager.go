@@ -73,8 +73,13 @@ func (m *Manager) Start(ctx context.Context, id, projectID, network string) (Sca
 	if err != nil {
 		return Scan{}, err
 	}
+	var projectVal *string
+	if strings.TrimSpace(projectID) != "" {
+		p := strings.TrimSpace(projectID)
+		projectVal = &p
+	}
 	scan := Scan{ID: id, ProjectID: projectID, Network: network, Status: "queued"}
-	_, err = m.db.ExecContext(ctx, "INSERT INTO network_scans(id,project_id,network,status) VALUES(?,?,?,?)", id, projectID, network, "queued")
+	_, err = m.db.ExecContext(ctx, "INSERT INTO network_scans(id,project_id,network,status) VALUES(?,?,?,?)", id, projectVal, network, "queued")
 	if err != nil {
 		return Scan{}, fmt.Errorf("create scan: %w", err)
 	}
@@ -82,7 +87,7 @@ func (m *Manager) Start(ctx context.Context, id, projectID, network string) (Sca
 	jobContext, cancel := context.WithCancel(context.Background())
 	workers := integerSetting(m.db, "scan_workers", m.workers, 1, 512)
 	timeout := time.Duration(integerSetting(m.db, "scan_timeout_ms", int(m.timeout/time.Millisecond), 50, 30000)) * time.Millisecond
-	ports := []int{22, 80, 443, 554, 8000, 8554, 37777}
+	ports := append([]int(nil), QuickPorts...)
 	var configuredPorts string
 	if m.db.QueryRowContext(ctx, "SELECT value FROM settings WHERE key='default_ports'").Scan(&configuredPorts) == nil {
 		if parsed, parseErr := ParsePorts(configuredPorts, 256); parseErr == nil {
@@ -129,11 +134,34 @@ func (m *Manager) Subscribe(id string) (<-chan Progress, func(), error) {
 }
 func (m *Manager) Get(ctx context.Context, id string) (Scan, error) {
 	var s Scan
-	err := m.db.QueryRowContext(ctx, "SELECT id,project_id,network,status,hosts_scanned,hosts_found,COALESCE(started_at,''),COALESCE(finished_at,'') FROM network_scans WHERE id=?", id).Scan(&s.ID, &s.ProjectID, &s.Network, &s.Status, &s.HostsScanned, &s.HostsFound, &s.StartedAt, &s.FinishedAt)
+	err := m.db.QueryRowContext(ctx, "SELECT id,COALESCE(project_id,''),network,status,hosts_scanned,hosts_found,COALESCE(started_at,''),COALESCE(finished_at,'') FROM network_scans WHERE id=?", id).Scan(&s.ID, &s.ProjectID, &s.Network, &s.Status, &s.HostsScanned, &s.HostsFound, &s.StartedAt, &s.FinishedAt)
 	return s, err
 }
+func (m *Manager) UpdateProject(ctx context.Context, id, projectID string) error {
+	var projectVal *string
+	if strings.TrimSpace(projectID) != "" {
+		p := strings.TrimSpace(projectID)
+		projectVal = &p
+	}
+	res, err := m.db.ExecContext(ctx, "UPDATE network_scans SET project_id=? WHERE id=?", projectVal, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	_, _ = m.db.ExecContext(ctx, "INSERT INTO audit_logs(id,action,entity_type,entity_id,details_json)VALUES(?,?,?,?,?)", randomID(), "scan_project_updated", "network_scan", id, `{"projectId":`+strconv.Quote(projectID)+`}`)
+	return nil
+}
 func (m *Manager) List(ctx context.Context, projectID string) ([]Scan, error) {
-	rows, err := m.db.QueryContext(ctx, "SELECT id,project_id,network,status,hosts_scanned,hosts_found,COALESCE(started_at,''),COALESCE(finished_at,'') FROM network_scans WHERE ?='' OR project_id=? ORDER BY created_at DESC", projectID, projectID)
+	var rows *sql.Rows
+	var err error
+	if strings.TrimSpace(projectID) == "" {
+		rows, err = m.db.QueryContext(ctx, "SELECT id,COALESCE(project_id,''),network,status,hosts_scanned,hosts_found,COALESCE(started_at,''),COALESCE(finished_at,'') FROM network_scans ORDER BY created_at DESC")
+	} else {
+		rows, err = m.db.QueryContext(ctx, "SELECT id,COALESCE(project_id,''),network,status,hosts_scanned,hosts_found,COALESCE(started_at,''),COALESCE(finished_at,'') FROM network_scans WHERE project_id=? ORDER BY created_at DESC", projectID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -294,16 +322,23 @@ func (m *Manager) finish(id string, j *job, scanned, found int, status string) {
 }
 
 func (m *Manager) persistDiff(scanID string) error {
-	var projectID, network string
+	var projectID sql.NullString
+	var network string
 	if err := m.db.QueryRow("SELECT project_id,network FROM network_scans WHERE id=?", scanID).Scan(&projectID, &network); err != nil {
 		return err
 	}
 	var previousID string
-	if err := m.db.QueryRow("SELECT id FROM network_scans WHERE project_id=? AND network=? AND id<>? AND status='completed' ORDER BY finished_at DESC LIMIT 1", projectID, network, scanID).Scan(&previousID); err != nil {
-		if err == sql.ErrNoRows {
+	var queryErr error
+	if projectID.Valid && strings.TrimSpace(projectID.String) != "" {
+		queryErr = m.db.QueryRow("SELECT id FROM network_scans WHERE project_id=? AND network=? AND id<>? AND status='completed' ORDER BY finished_at DESC LIMIT 1", projectID.String, network, scanID).Scan(&previousID)
+	} else {
+		queryErr = m.db.QueryRow("SELECT id FROM network_scans WHERE (project_id IS NULL OR project_id='') AND network=? AND id<>? AND status='completed' ORDER BY finished_at DESC LIMIT 1", network, scanID).Scan(&previousID)
+	}
+	if queryErr != nil {
+		if queryErr == sql.ErrNoRows {
 			return nil
 		}
-		return err
+		return queryErr
 	}
 	load := func(id string) ([]SnapshotHost, error) {
 		rows, err := m.db.Query("SELECT ip,mac,hostname,open_ports FROM scan_hosts WHERE scan_id=?", id)

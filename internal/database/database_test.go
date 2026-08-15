@@ -18,7 +18,7 @@ func TestMigrate(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if count != 14 {
-		t.Fatalf("expected fourteen migrations, got %d", count)
+	if count != 15 {
+		t.Fatalf("expected fifteen migrations, got %d", count)
 	}
 }
