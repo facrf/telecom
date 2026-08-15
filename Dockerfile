@@ -1,11 +1,12 @@
-FROM node:22-alpine AS frontend
+# syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM golang:1.24-alpine AS backend
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS backend
 ARG TARGETOS TARGETARCH TARGETVARIANT
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -13,9 +14,10 @@ RUN go mod download
 COPY . ./
 RUN rm -rf internal/web/static
 COPY --from=frontend /src/frontend/dist/ ./internal/web/static/
-RUN export GOARM=$(echo "${TARGETVARIANT}" | tr -d 'v'); \
-    [ -z "$GOARM" ] && [ "$TARGETARCH" = "arm" ] && GOARM=7; \
-    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} GOARM=$GOARM go build -trimpath -ldflags='-s -w' -o /out/telecom ./cmd/telecom
+RUN if [ "$TARGETARCH" = "arm" ]; then \
+      export GOARM=$(echo "${TARGETVARIANT:-v7}" | tr -d 'v'); \
+    fi; \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags='-s -w' -o /out/telecom ./cmd/telecom
 
 FROM alpine:3.22
 RUN apk add --no-cache iputils && addgroup -S telecom && adduser -S -G telecom telecom
