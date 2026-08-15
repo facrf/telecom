@@ -353,7 +353,7 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 			w.WriteHeader(204)
 		})
 		r.Get("/export.svg", func(w http.ResponseWriter, r *http.Request) {
-			_, nodes, edges, e := diagramRepository.Graph(r.Context(), chi.URLParam(r, "diagramID"))
+			diag, nodes, edges, e := diagramRepository.Graph(r.Context(), chi.URLParam(r, "diagramID"))
 			if errors.Is(e, diagrams.ErrNotFound) {
 				writeError(w, 404, "NOT_FOUND", "Diagrama não encontrado")
 				return
@@ -371,7 +371,11 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 				svgEdges = append(svgEdges, reports.Edge{Source: edge.SourceNodeID, Target: edge.TargetNodeID, Label: edge.Name, Color: edge.Color})
 			}
 			w.Header().Set("Content-Type", "image/svg+xml")
-			w.Header().Set("Content-Disposition", "attachment; filename=topologia.svg")
+			filename := "topologia.svg"
+			if diag.Name != "" {
+				filename = diag.Name + ".svg"
+			}
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 			_, _ = w.Write([]byte(reports.DiagramSVG(svgNodes, svgEdges)))
 		})
 	})

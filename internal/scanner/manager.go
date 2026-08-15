@@ -36,6 +36,7 @@ type Host struct {
 	DiscoveryMethods []string               `json:"discoveryMethods"`
 	Manufacturer     string                 `json:"manufacturer"`
 	DeviceType       string                 `json:"deviceType"`
+	CategoryID       string                 `json:"categoryId,omitempty"`
 	Confidence       float64                `json:"confidence"`
 	Evidence         []fingerprint.Evidence `json:"evidence"`
 	OpenPorts        []int                  `json:"openPorts,omitempty"`
@@ -277,7 +278,9 @@ func (m *Manager) probe(ctx context.Context, ip string, advanced discovery.Resul
 		}
 	}
 	if host.Status == "online" {
-		names, _ := net.LookupAddr(ip)
+		lookupCtx, cancelLookup := context.WithTimeout(ctx, 350*time.Millisecond)
+		names, _ := net.DefaultResolver.LookupAddr(lookupCtx, ip)
+		cancelLookup()
 		if len(names) > 0 {
 			host.Hostname = names[0]
 			host.Confidence = .85
@@ -288,12 +291,14 @@ func (m *Manager) probe(ctx context.Context, ip string, advanced discovery.Resul
 		}
 		identified := fingerprint.Identify(fingerprint.Input{MAC: host.MAC, Hostname: host.Hostname, Ports: host.OpenPorts, Methods: host.DiscoveryMethods, Banner: advanced.Hint})
 		if identified.Manufacturer == "" && host.MAC != "" {
-			prefix := strings.ToUpper(strings.ReplaceAll(host.MAC, ":", ""))
+			macReplacer := strings.NewReplacer(":", "", "-", "", ".", "", " ", "")
+			prefix := strings.ToUpper(macReplacer.Replace(host.MAC))
 			if len(prefix) >= 6 {
 				_ = m.db.QueryRow("SELECT vendor FROM oui_vendors WHERE prefix=?", prefix[:6]).Scan(&identified.Manufacturer)
 			}
 		}
 		host.Manufacturer, host.DeviceType, host.Evidence = identified.Manufacturer, identified.DeviceType, identified.Evidence
+		host.CategoryID = identified.CategoryID
 		if identified.Confidence > host.Confidence {
 			host.Confidence = identified.Confidence
 		}
@@ -435,6 +440,16 @@ func (m *Manager) publish(j *job, p Progress) {
 		select {
 		case ch <- p:
 		default:
+			if p.Status == "completed" || p.Status == "cancelled" || p.Status == "failed" {
+				select {
+				case <-ch:
+				default:
+				}
+				select {
+				case ch <- p:
+				default:
+				}
+			}
 		}
 	}
 }

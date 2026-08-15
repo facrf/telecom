@@ -169,7 +169,7 @@ export default function ScannerPage() {
       const device = await api<{ id: string }>('/devices', json('POST', {
         projectId: targetProjectId,
         name,
-        categoryId: 'other',
+        categoryId: host.categoryId || 'other',
         manufacturer: host.manufacturer,
         hostname: host.hostname,
         status: 'online'

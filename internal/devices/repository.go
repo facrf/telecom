@@ -164,7 +164,7 @@ func (v *Device) Validate() error {
 	}
 	return nil
 }
-func (v Address) Validate() error {
+func (v *Address) Validate() error {
 	if v.Type != "ipv4" && v.Type != "ipv6" && v.Type != "mac" {
 		return fmt.Errorf("tipo de endereço inválido")
 	}

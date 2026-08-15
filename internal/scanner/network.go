@@ -77,12 +77,12 @@ func ParseTarget(value string, limit uint64, allowPublic bool) (TargetRange, err
 	if err != nil || start.BitLen() != end.BitLen() || end.Compare(start) < 0 {
 		return TargetRange{}, fmt.Errorf("IP final inválido")
 	}
-	if !allowPublic && (!start.IsPrivate() || !end.IsPrivate()) {
-		return TargetRange{}, fmt.Errorf("somente redes privadas são permitidas")
-	}
 	count := uint64(0)
 	for current := start; ; current = current.Next() {
 		count++
+		if !allowPublic && !current.IsPrivate() && !current.IsLoopback() && !current.IsLinkLocalUnicast() {
+			return TargetRange{}, fmt.Errorf("somente redes privadas são permitidas")
+		}
 		if count > limit {
 			return TargetRange{}, fmt.Errorf("faixa excede o limite de %d hosts", limit)
 		}

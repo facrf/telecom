@@ -43,7 +43,8 @@ func TestInventoryCRUDAndAddresses(t *testing.T) {
 	if err != nil || len(addresses) != 1 {
 		t.Fatalf("addresses = %d, %v", len(addresses), err)
 	}
-	if err := (Address{Type: "mac", Address: "invalid"}).Validate(); err == nil {
+	invalidAddr := Address{Type: "mac", Address: "invalid"}
+	if err := invalidAddr.Validate(); err == nil {
 		t.Fatal("invalid MAC was accepted")
 	}
 	if err := repository.Delete(ctx, created.ID); err != nil {

@@ -137,7 +137,7 @@ func (v *Visit) CalculateDuration() {
 }
 
 func parseDate(value string) (time.Time, error) {
-	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04", "2006-01-02 15:04:05"} {
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02"} {
 		if parsed, err := time.Parse(layout, value); err == nil {
 			return parsed, nil
 		}

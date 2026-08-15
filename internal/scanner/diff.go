@@ -1,12 +1,21 @@
 package scanner
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type SnapshotHost struct {
 	IP, MAC, Hostname string
 	Ports             map[int]string
 }
-type Change struct{ Type, Subject, Previous, Current string }
+
+type Change struct {
+	Type     string `json:"type"`
+	Subject  string `json:"subject"`
+	Previous string `json:"previous"`
+	Current  string `json:"current"`
+}
 
 func Diff(previous, current []SnapshotHost) []Change {
 	oldByKey := map[string]SnapshotHost{}
@@ -46,20 +55,24 @@ func Diff(previous, current []SnapshotHost) []Change {
 	sort.Slice(changes, func(i, j int) bool { return changes[i].Type+changes[i].Subject < changes[j].Type+changes[j].Subject })
 	return changes
 }
+
 func portChanges(subject string, old, current map[int]string) []Change {
 	var changes []Change
 	for port, service := range current {
 		oldService, exists := old[port]
+		target := fmt.Sprintf("%s:%d", subject, port)
 		if !exists {
-			changes = append(changes, Change{"port_opened", subject, "", service})
+			changes = append(changes, Change{"port_opened", target, "", service})
 		} else if oldService != service {
-			changes = append(changes, Change{"service_changed", subject, oldService, service})
+			changes = append(changes, Change{"service_changed", target, oldService, service})
 		}
 	}
 	for port, service := range old {
 		if _, exists := current[port]; !exists {
-			changes = append(changes, Change{"port_closed", subject, service, ""})
+			target := fmt.Sprintf("%s:%d", subject, port)
+			changes = append(changes, Change{"port_closed", target, service, ""})
 		}
 	}
 	return changes
 }
+

@@ -55,7 +55,7 @@ func Multicast(ctx context.Context) map[string]Result {
 	merged := map[string]Result{}
 	var mutex sync.Mutex
 	var wait sync.WaitGroup
-	providers := []func(context.Context) []Result{discoverSSDP, discoverONVIF, discoverMDNS}
+	providers := []func(context.Context) []Result{discoverSSDP, discoverONVIF, discoverMDNS, discoverUbiquiti, discoverMNDP}
 	for _, provider := range providers {
 		wait.Add(1)
 		go func(provider func(context.Context) []Result) {
@@ -92,6 +92,17 @@ func discoverMDNS(ctx context.Context) []Result {
 	query := []byte{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 9, '_', 's', 'e', 'r', 'v', 'i', 'c', 'e', 's', 7, '_', 'd', 'n', 's', '-', 's', 'd', 4, '_', 'u', 'd', 'p', 5, 'l', 'o', 'c', 'a', 'l', 0, 0, 12, 0, 1}
 	return udpDiscover(ctx, "224.0.0.251:5353", query, "mdns")
 }
+
+func discoverUbiquiti(ctx context.Context) []Result {
+	payload := []byte{0x01, 0x00, 0x00, 0x00}
+	return udpDiscover(ctx, "255.255.255.255:10001", payload, "ubiquiti")
+}
+
+func discoverMNDP(ctx context.Context) []Result {
+	payload := []byte{0x00, 0x00, 0x00, 0x00}
+	return udpDiscover(ctx, "255.255.255.255:5678", payload, "mikrotik")
+}
+
 
 func udpDiscover(ctx context.Context, destination string, payload []byte, method string) []Result {
 	address, err := net.ResolveUDPAddr("udp4", destination)
