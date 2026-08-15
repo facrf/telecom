@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="telecom-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="45%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#112d6a"/>
+    </linearGradient>
+    <linearGradient id="telecom-accent" x1="0" y1="0" x2="32" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <filter id="telecom-shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1" flood-color="#050e24" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Base container -->
+  <rect width="32" height="32" rx="8" fill="url(#telecom-bg)"/>
+  
+  <!-- Subtle inner border -->
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7.25" stroke="white" stroke-opacity="0.18" stroke-width="1.5"/>
+
+  <!-- Network Waves / Signal Nodes -->
+  <path d="M7 8C11.5 5.5 20.5 5.5 25 8" stroke="url(#telecom-accent)" stroke-width="1.8" stroke-linecap="round" stroke-opacity="0.75"/>
+  <path d="M10 11C13.5 9 18.5 9 22 11" stroke="url(#telecom-accent)" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.45"/>
+
+  <!-- Telecom "T" Monogram -->
+  <g filter="url(#telecom-shadow)">
+    <path d="M7.5 13.5C7.5 12.67 8.17 12 9 12H23C23.83 12 24.5 12.67 24.5 13.5C24.5 14.33 23.83 15 23 15H18.5V24C18.5 24.83 17.83 25.5 17 25.5H15C14.17 25.5 13.5 24.83 13.5 24V15H9C8.17 15 7.5 14.33 7.5 13.5Z" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Active Network Status Node -->
+  <circle cx="23.5" cy="23.5" r="2.75" fill="#10b981"/>
+  <circle cx="23.5" cy="23.5" r="1.25" fill="#FFFFFF"/>
+</svg>

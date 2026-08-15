@@ -20,3 +20,18 @@ func TestHandlerServesIndexWithoutRedirect(t *testing.T) {
 		}
 	}
 }
+
+func TestHandlerServesFavicon(t *testing.T) {
+	for _, icon := range []string{"/favicon.svg", "/favicon.ico"} {
+		request := httptest.NewRequest(http.MethodGet, icon, nil)
+		response := httptest.NewRecorder()
+		Handler().ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("icon %s returned status %d", icon, response.Code)
+		}
+		if response.Body.Len() == 0 {
+			t.Fatalf("icon %s is empty", icon)
+		}
+	}
+}
+
