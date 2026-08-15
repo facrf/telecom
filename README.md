@@ -50,13 +50,66 @@ As FASES VT-1 e VT-2 estão disponíveis em **Visitas técnicas** no menu e pelo
 
 ## Docker
 
+Você pode utilizar a imagem pré-compilada do GitHub Container Registry (GHCR) ou realizar uma build local.
+
+**Executando via GHCR:**
+
 ```bash
-docker build -t telecom:local .
-docker run -d --name telecom -p 14000:14000 -v ./telecom-data:/data telecom:local
+docker pull ghcr.io/facrf/telecom:latest
+docker run -d --name telecom --network host -v telecom-data:/data ghcr.io/facrf/telecom:latest
 ```
 
-Para Portainer, use [portainer-stack.yml](portainer-stack.yml) após publicar ou disponibilizar localmente a imagem `telecom:latest` no host.
-Essa stack usa rede `host` em Linux para que ARP e descoberta multicast alcancem a LAN. Com `docker run`, acrescente `--network host` quando esses providers forem necessários (nesse modo, remova `-p`).
+*(Ou com build local: `docker build -t telecom:local .` e `docker run -d --name telecom --network host -v ./telecom-data:/data telecom:local`)*
+
+> Com `docker run`, utilize `--network host` para que os recursos de varredura (ARP, mDNS, SSDP, ONVIF) alcancem a LAN do host. Caso não utilize rede host, publique a porta com `-p 14000:14000`.
+
+## Instalação via Portainer
+
+Para implantar a aplicação no Portainer utilizando o [portainer-stack.yml](portainer-stack.yml):
+
+1. **Imagem no GHCR:**
+   A stack utiliza a imagem oficial `ghcr.io/facrf/telecom:latest` (você também pode fixar uma tag específica, como `ghcr.io/facrf/telecom:sha-5e54651`).
+   Opcionalmente, baixe a imagem no host com antecedência:
+   ```bash
+   docker pull ghcr.io/facrf/telecom:latest
+   ```
+
+2. **Criar a Stack:**
+   - Acesse o Portainer e selecione o ambiente desejado (**Environments** > **local**).
+   - No menu lateral, acesse **Stacks** e clique em **+ Add stack**.
+   - No campo **Name**, informe `telecom`.
+   - Em **Build method**, escolha **Web editor** e cole o conteúdo do [portainer-stack.yml](portainer-stack.yml):
+
+   ```yaml
+   services:
+     telecom:
+       image: ghcr.io/facrf/telecom:latest
+       container_name: telecom
+       restart: unless-stopped
+       network_mode: host
+       environment:
+         TELECOM_PORT: "14000"
+         TELECOM_DATA_DIR: /data
+         TELECOM_SCAN_WORKERS: "32"
+         TELECOM_LOG_LEVEL: info
+       volumes:
+         - telecom-data:/data
+       read_only: true
+       tmpfs:
+         - /tmp
+       security_opt:
+         - no-new-privileges:true
+
+   volumes:
+     telecom-data:
+       name: telecom-data
+   ```
+
+3. **Deploy:**
+   - Clique em **Deploy the stack**. O Portainer fará o download da imagem e iniciará o container.
+   - Após a inicialização, a aplicação estará disponível em `http://<IP_DO_HOST>:14000`.
+
+> **Nota:** A stack utiliza `network_mode: host` para permitir que o scanner de rede descubra dispositivos via ARP, mDNS, SSDP e ONVIF na LAN local do host.
 
 ## Configuração
 

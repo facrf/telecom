@@ -1,6 +1,6 @@
 services:
   telecom:
-    image: telecom:latest
+    image: ghcr.io/facrf/telecom:latest
     container_name: telecom
     restart: unless-stopped
     # Host networking permite ARP, mDNS, SSDP e ONVIF na LAN do técnico.
