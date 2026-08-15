@@ -1,0 +1,3 @@
+# O diretório existe para uso local. Bancos, anexos e backups não são versionados.
+*
+!.gitignore

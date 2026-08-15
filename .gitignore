@@ -1,0 +1,132 @@
+# Sistema operacional
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editores e IDEs
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+# Logs, relatórios e arquivos temporários
+*.log
+logs/
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+.eslintcache
+*.tsbuildinfo
+coverage/
+.nyc_output/
+
+# Variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Node.js e front-end
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.parcel-cache/
+.next/
+.nuxt/
+.svelte-kit/
+.angular/
+.vite/
+dist/
+build/
+
+# PHP / Composer
+vendor/
+composer.phar
+.phpunit.result.cache
+
+# Laravel
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+/storage/*.key
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+htmlcov/
+*.egg-info/
+.coverage
+.coverage.*
+
+# Testes e ferramentas
+test-results/
+playwright-report/
+allure-results/
+allure-report/
+
+# Banco de dados local e uploads gerados
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+
+# Backups e arquivos compactados
+*.bak
+*.backup
+*.old
+*.orig
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Dados locais da aplicação
+/data/*
+!/data/.gitignore
+
+# Binário local
+/telecom

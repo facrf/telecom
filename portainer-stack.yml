@@ -1,0 +1,24 @@
+services:
+  telecom:
+    image: telecom:latest
+    container_name: telecom
+    restart: unless-stopped
+    # Host networking permite ARP, mDNS, SSDP e ONVIF na LAN do técnico.
+    # A aplicação permanece acessível na porta 14000 do host.
+    network_mode: host
+    environment:
+      TELECOM_PORT: "14000"
+      TELECOM_DATA_DIR: /data
+      TELECOM_SCAN_WORKERS: "32"
+      TELECOM_LOG_LEVEL: info
+    volumes:
+      - telecom-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  telecom-data:
+    name: telecom-data
