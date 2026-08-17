@@ -18,7 +18,7 @@ describe('api',()=>{
 
   it('expõe a mensagem segura retornada pelo backend',async()=>{
     vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('{"error":{"code":"VALIDATION_ERROR","message":"Faixa inválida","field":"network"}}',{status:422,headers:{'Content-Type':'application/json'}})))
-    const error=await api('/scans').catch(value=>value as ApiError)
+    const error=await api<never>('/scans').catch(value=>value as ApiError)
     expect(error).toBeInstanceOf(ApiError)
     expect(error.message).toBe('Faixa inválida')
     expect(error.field).toBe('network')
