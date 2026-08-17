@@ -30,6 +30,9 @@ func TestFindTechnicalVisitByStructuredDetails(t *testing.T) {
 		foundVisit := false
 		for _, result := range results {
 			if result.ID == "v" && result.Type == "technical_visit" {
+				if result.ProjectID != "p" {
+					t.Fatalf("visit project = %q", result.ProjectID)
+				}
 				foundVisit = true
 			}
 		}

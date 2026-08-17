@@ -89,6 +89,9 @@ func (v *Visit) Validate() error {
 	if !results[v.Result] {
 		return ValidationError{"result", "Resultado inválido"}
 	}
+	if v.Result == "requires_return" {
+		v.RequiresReturn = true
+	}
 	if v.ScheduledAt == "" {
 		return ValidationError{"scheduledAt", "Data da visita é obrigatória"}
 	}
@@ -107,6 +110,11 @@ func (v *Visit) Validate() error {
 	}
 	if v.Status == StatusCompleted && v.Result == "" {
 		return ValidationError{"result", "Resultado é obrigatório para visita concluída"}
+	}
+	if v.SuggestedReturnAt != "" {
+		if _, err := parseDate(v.SuggestedReturnAt); err != nil {
+			return ValidationError{"suggestedReturnAt", "Data sugerida para retorno é inválida"}
+		}
 	}
 	if v.FinishedAt != "" && v.StartedAt == "" {
 		return ValidationError{"startedAt", "Hora inicial é obrigatória quando houver hora final"}

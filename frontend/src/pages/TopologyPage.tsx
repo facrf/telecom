@@ -194,9 +194,9 @@ const buildEdge = (value: DiagramEdge): Edge => {
   }
 }
 
-function Editor() {
+function Editor({initialProjectId}:{initialProjectId:string}) {
   const [projects, setProjects] = useState<Project[]>([])
-  const [project, setProject] = useState('')
+  const [project, setProject] = useState(initialProjectId)
   const [diagrams, setDiagrams] = useState<Diagram[]>([])
   const [diagram, setDiagram] = useState<Diagram>()
   const [devices, setDevices] = useState<Device[]>([])
@@ -295,6 +295,10 @@ function Editor() {
   useEffect(() => {
     void loadProjects()
   }, [])
+
+  useEffect(() => {
+    void loadProject(initialProjectId)
+  }, [initialProjectId])
 
   // Criar Diagrama
   const createDiagram = async () => {
@@ -1451,10 +1455,10 @@ function Editor() {
   )
 }
 
-export default function TopologyPage() {
+export default function TopologyPage({initialProjectId='' }:{initialProjectId?:string}) {
   return (
     <ReactFlowProvider>
-      <Editor />
+      <Editor initialProjectId={initialProjectId} />
     </ReactFlowProvider>
   )
 }

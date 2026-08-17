@@ -16,7 +16,7 @@ func NewStore(dataDir string, maxSize int64) *Store {
 	return &Store{root: filepath.Join(dataDir, "attachments"), maxSize: maxSize}
 }
 func (s *Store) Save(entityType, filename string, content []byte) (Metadata, string, error) {
-	if entityType != "client" && entityType != "project" && entityType != "device" && entityType != "edge" && entityType != "document" {
+	if entityType != "client" && entityType != "project" && entityType != "device" && entityType != "edge" && entityType != "document" && entityType != "technical_visit" {
 		return Metadata{}, "", fmt.Errorf("tipo de entidade inválido")
 	}
 	metadata, err := Validate(filename, content, s.maxSize)

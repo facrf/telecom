@@ -18,12 +18,12 @@ Navegador → React incorporado → net/http / chi → serviços e repositórios
 - `internal/fingerprint`: motor de evidências e base OUI local/importável.
 - `internal/diagrams` e `internal/documents`: topologias e documentação estruturada.
 - `internal/attachments`, `internal/backup` e `internal/transfer`: arquivos, recuperação e formatos portáveis.
-- `internal/technicalvisits`: domínio, validação, serviço e persistência das visitas técnicas.
+- `internal/technicalvisits`: domínio, validação, serviço e persistência das visitas técnicas; evidências reutilizam o armazenamento polimórfico de anexos.
 - `frontend/src/pages`: módulos React carregados sob demanda; React Flow no editor visual.
 
 ## Persistência
 
-As migrations `001` a `014` cobrem configurações/auditoria, clientes/projetos, inventário, anexos/tags, scans de rede e portas, documentação, diagramas, eventos de diff, fingerprints, OUI e as fases VT-1/VT-2 das visitas técnicas. A tabela `schema_migrations` controla a evolução sem SQL manual.
+As migrations `001` a `015` cobrem configurações/auditoria, clientes/projetos, inventário, anexos/tags, scans de rede e portas, documentação, diagramas, eventos de diff, fingerprints, OUI e as visitas técnicas. A tabela `schema_migrations` controla a evolução sem SQL manual.
 
 ## Visitas técnicas
 
@@ -31,7 +31,9 @@ As migrations `001` a `014` cobrem configurações/auditoria, clientes/projetos,
 
 O service valida os valores de domínio e gera IDs internos aleatórios. O repository gera o protocolo amigável dentro da mesma transação do insert e usa `updated_at` como token de concorrência nos updates.
 
-A VT-2 armazena equipamentos relacionados, serviços, checklist, materiais e pendências em tabelas dependentes, removidas em cascata somente quando a visita é excluída. Equipamentos são referências ao inventário existente. Validações no service/repository e triggers SQLite garantem que visita e equipamento pertençam ao mesmo projeto. Anexos, scans, diagramas e assinaturas permanecem para migrations posteriores.
+A VT-2 armazena equipamentos relacionados, serviços, checklist, materiais e pendências em tabelas dependentes, removidas em cascata somente quando a visita é excluída. Equipamentos são referências ao inventário existente. Validações no service/repository e triggers SQLite garantem que visita e equipamento pertençam ao mesmo projeto. Fotos, evidências e assinaturas reutilizam `attachments` com o tipo `technical_visit`; o relatório PDF é montado no frontend somente com os dados públicos da visita.
+
+O frontend mantém um projeto ativo compartilhado entre dashboard, visitas, inventário, scanner, topologia, documentação e transferência. Rotas em hash permitem abrir diretamente clientes, visitas e equipamentos sem exigir configuração adicional no servidor local.
 
 SQLite usa `foreign_keys`, `busy_timeout` e WAL. Backups usam uma cópia consistente e restaurações são preparadas em staging antes da troca recuperável dos dados.
 

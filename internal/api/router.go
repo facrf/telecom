@@ -120,7 +120,7 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 		})
 	})
 	r.Route("/scans", func(r chi.Router) {
-		h := scanHandlers{scanManager}
+		h := scanHandlers{manager: scanManager, db: repositoryDB(repository)}
 		r.Get("/", h.list)
 		r.Post("/", h.start)
 		r.Route("/{scanID}", func(r chi.Router) {
@@ -131,6 +131,7 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 			r.Get("/changes", h.changes)
 			r.Post("/cancel", h.cancel)
 			r.Get("/events", h.events)
+			r.Post("/inventory", h.inventory)
 		})
 	})
 	r.Post("/devices/{deviceID}/port-scans", func(w http.ResponseWriter, r *http.Request) {
@@ -387,6 +388,14 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 		}
 		writeJSON(w, 200, summary)
 	})
+	r.Get("/dashboard/operations", func(w http.ResponseWriter, r *http.Request) {
+		operations, e := dashboardService.Operations(r.Context(), r.URL.Query().Get("project_id"))
+		if e != nil {
+			serverError(w, e)
+			return
+		}
+		writeJSON(w, 200, operations)
+	})
 	r.Get("/audit-logs", func(w http.ResponseWriter, r *http.Request) {
 		entries, e := auditRepository.Recent(r.Context(), 20)
 		if e != nil {
@@ -561,7 +570,11 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 		}
 		path := filepath.Join(dataDir, "attachments", entityType, stored)
 		w.Header().Set("Content-Type", mime)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+		disposition := "attachment"
+		if strings.HasPrefix(mime, "image/") {
+			disposition = "inline"
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf("%s; filename=%q", disposition, name))
 		http.ServeFile(w, r, path)
 	})
 	r.Delete("/attachments/{attachmentID}", func(w http.ResponseWriter, r *http.Request) {
@@ -719,7 +732,10 @@ func apiRouter(repository *clients.Repository, workers int, dataDir string, onRe
 	return r
 }
 
-type scanHandlers struct{ manager *scanner.Manager }
+type scanHandlers struct {
+	manager *scanner.Manager
+	db      *sql.DB
+}
 
 func (h scanHandlers) list(w http.ResponseWriter, r *http.Request) {
 	items, e := h.manager.List(r.Context(), r.URL.Query().Get("project_id"))

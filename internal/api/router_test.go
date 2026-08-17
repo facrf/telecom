@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/local/telecom/internal/database"
 )
@@ -175,3 +176,72 @@ func TestScanWithoutProjectAndAssign(t *testing.T) {
 	}
 }
 
+func TestScanInventoryBulkIsAtomicAndSkipsDuplicates(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "telecom.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err = database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`
+		INSERT INTO clients(id,name) VALUES('bulk-client','Cliente Bulk');
+		INSERT INTO projects(id,client_id,name) VALUES('bulk-project','bulk-client','Projeto Bulk');
+		INSERT INTO network_scans(id,network,status) VALUES('bulk-scan','192.168.20.0/24','completed');
+		INSERT INTO scan_hosts(id,scan_id,ip,mac,hostname,status,manufacturer,device_type) VALUES
+		('bulk-host-1','bulk-scan','192.168.20.10','00:11:22:33:44:55','camera-entrada','online','Intelbras','Câmera IP'),
+		('bulk-host-2','bulk-scan','192.168.20.11','','switch-core','online','TP-Link','Equipamento de rede');`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(db, slog.Default(), 2, t.TempDir(), func() {})
+	payload := `{"projectId":"bulk-project","items":[{"ip":"192.168.20.10","name":"Câmera Entrada","categoryId":"ip-camera"},{"ip":"192.168.20.11","name":"Switch Core","categoryId":"switch"}]}`
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/scans/bulk-scan/inventory", bytes.NewBufferString(payload))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !bytes.Contains(response.Body.Bytes(), []byte(`"created":2`)) {
+		t.Fatalf("bulk inventory returned %d: %s", response.Code, response.Body.String())
+	}
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/scans/bulk-scan/inventory", bytes.NewBufferString(payload))
+	request.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || !bytes.Contains(response.Body.Bytes(), []byte(`"skipped":2`)) {
+		t.Fatalf("duplicate bulk inventory returned %d: %s", response.Code, response.Body.String())
+	}
+	var devices, addresses int
+	if err = db.QueryRow(`SELECT count(*) FROM devices WHERE project_id='bulk-project'`).Scan(&devices); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRow(`SELECT count(*) FROM device_addresses`).Scan(&addresses); err != nil {
+		t.Fatal(err)
+	}
+	if devices != 2 || addresses != 3 {
+		t.Fatalf("devices=%d addresses=%d", devices, addresses)
+	}
+}
+
+func TestOperationalDashboard(t *testing.T) {
+	db, err := database.Open(filepath.Join(t.TempDir(), "telecom.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err = database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	today := time.Now().Format("2006-01-02")
+	_, err = db.Exec(`INSERT INTO clients(id,name) VALUES('ops-client','Cliente Operacional'); INSERT INTO projects(id,client_id,name) VALUES('ops-project','ops-client','Matriz'); INSERT INTO technical_visits(id,project_id,protocol,title,visit_type,status,scheduled_at,requires_return) VALUES('ops-visit','ops-project','VT-2026-999999','Atendimento de hoje','diagnosis','draft',?,1); INSERT INTO technical_visit_pending_items(id,technical_visit_id,description,priority,due_at) VALUES('ops-pending','ops-visit','Trocar conector','critical','2020-01-01')`, today+"T10:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(db, slog.Default(), 2, t.TempDir(), func() {})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/dashboard/operations?project_id=ops-project", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte("Atendimento de hoje")) || !bytes.Contains(response.Body.Bytes(), []byte(`"overdue":1`)) {
+		t.Fatalf("operational dashboard returned %d: %s", response.Code, response.Body.String())
+	}
+}

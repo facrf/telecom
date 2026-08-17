@@ -1,10 +1,12 @@
-# Visitas técnicas — FASES VT-1 e VT-2
+# Visitas técnicas — FASES VT-1 a VT-3
 
 ## Escopo entregue
 
 A primeira fase implementa cadastro, consulta, edição e exclusão de visitas, sempre vinculadas a um projeto existente. A resposta da API inclui cliente e projeto resolvidos pelo relacionamento normalizado. Também estão disponíveis protocolo automático, status, resultado, campos básicos do relato, cálculo de duração, filtros e pesquisa global.
 
 A segunda fase acrescenta equipamentos envolvidos por referência ao inventário, serviços executados, checklist ordenável, materiais utilizados e pendências priorizadas. Todos possuem criação, listagem, edição e exclusão próprias.
+
+A terceira fase acrescenta fluxo contínuo de preenchimento, horários rápidos de início/fim, rascunho local recuperável, modelos de checklist, geração de resumos, criação de retorno, fotos categorizadas, assinatura do cliente e relatório PDF. As evidências reutilizam a API polimórfica de anexos com `entityType=technical_visit`.
 
 Status aceitos: `draft`, `scheduled`, `in_progress`, `completed` e `cancelled`.
 
@@ -62,7 +64,11 @@ O `protocol` é somente um identificador amigável; a chave estável é `id`. Em
 8. Pesquise o protocolo, um serviço ou equipamento relacionado na busca global.
 9. Abra e exclua a visita, confirmando o diálogo.
 10. Para concorrência, abra a mesma visita em duas sessões, salve na primeira e tente salvar a versão antiga na segunda; a API deve responder `409`.
+11. Use **Iniciar agora** e **Finalizar agora**, selecionando o resultado antes de concluir.
+12. Aplique um modelo no checklist e gere os resumos a partir dos serviços e pendências.
+13. Em **Evidências**, capture fotos antes/depois, desenhe a assinatura e gere o PDF.
+14. Marque uma visita como retorno necessário e use **Criar retorno** na listagem.
 
-## Próxima fase (VT-3)
+## Anexos e relatório
 
-Permanecem fora desta fase: anexos, fotos, categorias de fotos e pares antes/depois. A VT-3 deverá reutilizar o mecanismo polimórfico de attachments existente, sem criar outro sistema de upload.
+Uploads usam `POST /api/v1/attachments/technical_visit/{visitID}` e a listagem usa `GET` no mesmo caminho. A categoria fica no prefixo estruturado da descrição (`[before]`, `[after]`, `[measurement]`, `[equipment]`, `[cabling]`, `[evidence]` ou `[signature]`), mantendo compatibilidade com o armazenamento existente.

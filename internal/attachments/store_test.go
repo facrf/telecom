@@ -16,3 +16,14 @@ func TestStore(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestStoreAcceptsTechnicalVisitEvidence(t *testing.T) {
+	dir := t.TempDir()
+	metadata, _, err := NewStore(dir, 1024).Save("technical_visit", "antes.txt", []byte("evidencia"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = os.Stat(filepath.Join(dir, "attachments", "technical_visit", metadata.StoredFilename)); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -12,9 +12,9 @@ type Progress = {
   host?: ScanHost
 }
 
-export default function ScannerPage() {
+export default function ScannerPage({initialProjectId='' }:{initialProjectId?:string}) {
   const [projects, setProjects] = useState<Project[]>([])
-  const [project, setProject] = useState('')
+  const [project, setProject] = useState(initialProjectId)
   const [network, setNetwork] = useState('192.168.0.0/24')
   const [scans, setScans] = useState<Scan[]>([])
   const [selected, setSelected] = useState<Scan>()
@@ -23,6 +23,7 @@ export default function ScannerPage() {
   const [progress, setProgress] = useState<Progress>()
   const [message, setMessage] = useState('')
   const [assignProjectId, setAssignProjectId] = useState('')
+  const [selectedHosts, setSelectedHosts] = useState<Set<string>>(new Set())
   const stream = useRef<EventSource | undefined>(undefined)
 
   const loadProjects = async () => {
@@ -54,6 +55,7 @@ export default function ScannerPage() {
         api<Scan>(`/scans/${scan.id}`)
       ])
       setHosts(items(hostValue))
+      setSelectedHosts(new Set())
       setChanges(items(changeValue))
       setSelected(fresh)
       setAssignProjectId(fresh.projectId || '')
@@ -71,6 +73,8 @@ export default function ScannerPage() {
     void loadScans()
   }, [project])
 
+  useEffect(() => setProject(initialProjectId), [initialProjectId])
+
   const start = async (event: FormEvent) => {
     event.preventDefault()
     try {
@@ -78,6 +82,7 @@ export default function ScannerPage() {
       setSelected(scan)
       setAssignProjectId(scan.projectId || '')
       setHosts([])
+      setSelectedHosts(new Set())
       setChanges([])
       setProgress({ scanId: scan.id, status: 'queued', hostsScanned: 0, hostsFound: 0, total: 0 })
       await loadScans()
@@ -131,74 +136,20 @@ export default function ScannerPage() {
     }
   }
 
-  const addDevice = async (host: ScanHost) => {
-    if (!selected) return
-
-    let targetProjectId = selected.projectId
-    if (!targetProjectId) {
-      if (projects.length === 0) {
-        setMessage('Nenhum projeto cadastrado no sistema. Cadastre um cliente e projeto no menu "Clientes e projetos" antes de inventariar.')
-        return
-      }
-      if (projects.length === 1) {
-        targetProjectId = projects[0].id
-      } else {
-        const optionsText = projects.map((p, i) => `${i + 1}. ${p.name}`).join('\n')
-        const chosen = prompt(`Selecione o projeto para o equipamento:\n${optionsText}\n\nDigite o número ou ID do projeto:`, '1')
-        if (!chosen) return
-        const index = parseInt(chosen, 10) - 1
-        if (!isNaN(index) && projects[index]) {
-          targetProjectId = projects[index].id
-        } else {
-          const matched = projects.find(p => p.id === chosen || p.name.toLowerCase() === chosen.toLowerCase())
-          if (matched) {
-            targetProjectId = matched.id
-          } else {
-            setMessage('Projeto selecionado inválido.')
-            return
-          }
-        }
-      }
-    }
-
-    const defaultName = host.hostname || `${host.deviceType || 'Dispositivo'} ${host.ip}`
-    const name = prompt('Nome do equipamento para o inventário:', defaultName)
-    if (!name) return
-
+  const inventoryHosts = async (selectedItems:ScanHost[]) => {
+    if (!selected || selectedItems.length === 0) return
+    const targetProjectId = selected.projectId || assignProjectId || (projects.length === 1 ? projects[0].id : '')
+    if (!targetProjectId) { setMessage('Selecione o projeto de destino antes de inventariar.'); return }
     try {
-      const device = await api<{ id: string }>('/devices', json('POST', {
-        projectId: targetProjectId,
-        name,
-        categoryId: host.categoryId || 'other',
-        manufacturer: host.manufacturer,
-        hostname: host.hostname,
-        status: 'online'
-      }))
-
-      await api(`/devices/${device.id}/addresses`, json('POST', {
-        type: 'ipv4',
-        address: host.ip,
-        primary: true
-      }))
-
-      if (host.mac) {
-        await api(`/devices/${device.id}/addresses`, json('POST', {
-          type: 'mac',
-          address: host.mac,
-          primary: true
-        }))
-      }
-
-      if (!selected.projectId && targetProjectId) {
-        await linkProject(targetProjectId)
-      }
-
-      const projectName = projects.find(p => p.id === targetProjectId)?.name || 'projeto'
-      setMessage(`Equipamento "${name}" adicionado com sucesso ao ${projectName}.`)
-    } catch (err: unknown) {
-      setMessage(`Erro ao inventariar equipamento: ${(err as Error).message || err}`)
-    }
+      const result=await api<{created:number;skipped:number}>(`/scans/${selected.id}/inventory`,json('POST',{projectId:targetProjectId,items:selectedItems.map(host=>({ip:host.ip,name:host.hostname||`${host.deviceType||'Dispositivo'} ${host.ip}`,categoryId:host.categoryId||'other'}))}))
+      setSelectedHosts(new Set())
+      setSelected(current=>current?{...current,projectId:targetProjectId}:current)
+      setAssignProjectId(targetProjectId)
+      await loadScans()
+      setMessage(`${result.created} equipamento(s) inventariado(s). ${result.skipped?`${result.skipped} duplicado(s) ignorado(s).`:''}`)
+    } catch (err: unknown) { setMessage(`Erro ao inventariar: ${(err as Error).message || err}`) }
   }
+  const toggleHost=(ip:string)=>setSelectedHosts(current=>{const next=new Set(current);if(next.has(ip))next.delete(ip);else next.add(ip);return next})
 
   const percentage = progress?.total ? Math.round((progress.hostsScanned / progress.total) * 100) : 0
   const selectedProjectName = projects.find(p => p.id === selected?.projectId)?.name
@@ -310,10 +261,12 @@ export default function ScannerPage() {
               </div>
 
               {hosts.length > 0 && (
-                <div className="table-scroll">
+                <div className="table-scroll responsive-table">
+                  <div className="bulk-actions"><label><input type="checkbox" checked={selectedHosts.size===hosts.length} onChange={event=>setSelectedHosts(event.target.checked?new Set(hosts.map(host=>host.ip)):new Set())}/> Selecionar todos</label><button className="primary" disabled={selectedHosts.size===0} onClick={()=>void inventoryHosts(hosts.filter(host=>selectedHosts.has(host.ip)))}>Inventariar selecionados ({selectedHosts.size})</button></div>
                   <table>
                     <thead>
                       <tr>
+                        <th></th>
                         <th>IP / hostname</th>
                         <th>Identificação</th>
                         <th>Métodos</th>
@@ -324,17 +277,18 @@ export default function ScannerPage() {
                     <tbody>
                       {hosts.map(host => (
                         <tr key={host.ip}>
-                          <td>
+                          <td data-label="Selecionar"><input type="checkbox" aria-label={`Selecionar ${host.ip}`} checked={selectedHosts.has(host.ip)} onChange={()=>toggleHost(host.ip)}/></td>
+                          <td data-label="IP / hostname">
                             <code>{host.ip}</code>
                             {host.mac && <small style={{ display: 'block', color: 'var(--muted, #64748b)' }}>MAC: {host.mac}</small>}
                             {host.hostname && <small style={{ display: 'block' }}>{host.hostname}</small>}
                           </td>
-                          <td>
+                          <td data-label="Identificação">
                             {host.deviceType || 'Dispositivo'}
                             {host.manufacturer && <small style={{ display: 'block' }}>{host.manufacturer}</small>}
                           </td>
-                          <td>{(host.discoveryMethods || []).join(', ')}</td>
-                          <td>
+                          <td data-label="Métodos">{(host.discoveryMethods || []).join(', ')}</td>
+                          <td data-label="Confiança">
                             {Math.round(host.confidence * 100)}%
                             {host.evidence && host.evidence.length > 0 && (
                               <details>
@@ -345,8 +299,8 @@ export default function ScannerPage() {
                               </details>
                             )}
                           </td>
-                          <td>
-                            <button onClick={() => void addDevice(host)}>Inventariar</button>
+                          <td className="row-actions">
+                            <button onClick={() => void inventoryHosts([host])}>Inventariar</button>
                           </td>
                         </tr>
                       ))}

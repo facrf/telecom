@@ -14,3 +14,6 @@
 - Porta padrão e imagens/stack Docker configuradas para `14000`.
 - Visitas técnicas VT-1: migration normalizada, CRUD/API, protocolo anual, filtros, concorrência otimista, pesquisa global e interface integrada a clientes/projetos.
 - Visitas técnicas VT-2: equipamentos referenciados do inventário, serviços executados, checklist, materiais e pendências com CRUDs aninhados, validação de projeto e interface em seções.
+- Experiência de campo: projeto ativo global, navegação profunda, dashboard de hoje, layout móvel, rascunho recuperável e ações rápidas de início/fim.
+- Visitas técnicas VT-3: modelos de checklist, resumos automáticos, retornos derivados, fotos categorizadas, assinatura e relatório PDF.
+- Scanner e inventário: seleção múltipla de hosts, importação transacional com deduplicação e acompanhamento do scan de portas até a conclusão.

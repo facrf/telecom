@@ -5,7 +5,7 @@ Aplicação web local e autocontida para técnicos de telecomunicações documen
 ## Funcionalidades
 
 - dashboard, clientes, projetos e inventário de equipamentos;
-- visitas técnicas por projeto, com protocolo anual, status, resultado, equipamentos, serviços, checklist, materiais e pendências;
+- visitas técnicas em fluxo contínuo, com protocolo anual, início/fim rápidos, rascunho recuperável, modelos de checklist, equipamentos, serviços, materiais, pendências, fotos, assinatura e relatório PDF;
 - endereços, categorias, tags e anexos validados;
 - scanner de rede com CIDR/faixa, worker pool, cancelamento e progresso SSE;
 - descoberta por TCP, ICMP, ARP, reverse DNS, mDNS, SSDP e ONVIF;
@@ -15,7 +15,7 @@ Aplicação web local e autocontida para técnicos de telecomunicações documen
 - documentação estruturada e relatórios PNG/PDF;
 - importação/exportação JSON versionada e transacional;
 - backup SQLite consistente e restauração validada com rollback;
-- pesquisa global, configurações, auditoria e modos claro/escuro.
+- projeto ativo compartilhado entre os módulos, dashboard operacional, pesquisa com abertura direta, interface móvel, configurações, auditoria e modos claro/escuro.
 
 ## Desenvolvimento
 
@@ -46,7 +46,7 @@ O build copia a saída do Vite para `internal/web/static`, que é incorporada co
 
 ## Visitas técnicas
 
-As FASES VT-1 e VT-2 estão disponíveis em **Visitas técnicas** no menu e pelo botão **Visitas** de cada projeto. O módulo mantém o vínculo normalizado pelo projeto, gera protocolos no formato `VT-AAAA-NNNNNN` e oferece CRUD, filtros, duração calculada, controle otimista de concorrência e registros estruturados do trabalho executado. Consulte [docs/technical-visits.md](docs/technical-visits.md) para a API, teste manual e escopo das próximas fases.
+As fases VT-1 a VT-3 estão disponíveis em **Atendimentos** no menu e pelo botão **Visitas** de cada projeto. O módulo mantém o vínculo normalizado pelo projeto, gera protocolos no formato `VT-AAAA-NNNNNN` e oferece fluxo guiado, filtros, duração calculada, controle otimista de concorrência, registros estruturados, evidências e relatório. Consulte [docs/technical-visits.md](docs/technical-visits.md) para a API e o teste manual.
 
 ## Docker
 
